@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Editor de Notas — Turma</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap');
 
@@ -385,6 +386,148 @@ input.cell-input.wide { width:90px; }
 .modal p { font-size:0.85rem; color:var(--muted); margin-bottom:1.5rem; }
 .modal-btns { display:flex; gap:0.8rem; justify-content:flex-end; }
 
+/* ── TAB NAV ── */
+.tab-nav {
+  display:none;
+  border-bottom:1px solid var(--border);
+  background:var(--s1);
+  padding:0 2.5rem;
+  gap:0;
+}
+.tab-nav.visible { display:flex; }
+.tab-btn {
+  padding:0.85rem 1.4rem;
+  border:none; border-bottom:2px solid transparent;
+  background:transparent;
+  color:var(--muted);
+  font-family:'Syne',sans-serif;
+  font-size:0.8rem; font-weight:700;
+  letter-spacing:0.05em; text-transform:uppercase;
+  cursor:pointer; transition:all 0.2s;
+  margin-bottom:-1px;
+}
+.tab-btn:hover { color:var(--text); }
+.tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
+
+/* ── ANALYSIS SCREEN ── */
+#analysisScreen {
+  display:none;
+  padding:1.5rem 2.5rem 3rem;
+}
+
+.an-grid {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:1.4rem;
+  margin-bottom:1.4rem;
+}
+.an-grid.wide { grid-template-columns:1fr; }
+.an-grid.three { grid-template-columns:1fr 1fr 1fr; }
+
+.an-card {
+  background:var(--s1);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:1.4rem;
+  overflow:hidden;
+}
+.an-card h3 {
+  font-family:'Syne',sans-serif;
+  font-size:0.9rem; font-weight:800;
+  margin-bottom:0.2rem;
+  color:var(--text);
+}
+.an-card .sub {
+  font-size:0.75rem; color:var(--muted);
+  margin-bottom:1.2rem;
+}
+.an-chart-wrap { position:relative; height:280px; }
+.an-chart-wrap.tall { height:360px; }
+.an-chart-wrap.short { height:220px; }
+
+/* analysis top filter bar */
+.an-toolbar {
+  display:flex; align-items:center; gap:1rem; flex-wrap:wrap;
+  margin-bottom:1.4rem;
+}
+.an-toolbar .ctrl-group select { min-width:140px; }
+
+/* insight pills */
+.insight-row {
+  display:flex; gap:0.7rem; flex-wrap:wrap;
+  margin-bottom:1.4rem;
+}
+.insight-pill {
+  flex:1; min-width:140px;
+  background:var(--s1);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:1rem 1.2rem;
+  position:relative; overflow:hidden;
+}
+.insight-pill::before {
+  content:''; position:absolute;
+  top:0; left:0; right:0; height:3px;
+  border-radius:12px 12px 0 0;
+}
+.insight-pill.ip-blue::before  { background:var(--accent); }
+.insight-pill.ip-green::before { background:var(--green); }
+.insight-pill.ip-yellow::before{ background:var(--yellow); }
+.insight-pill.ip-red::before   { background:var(--red); }
+.insight-pill.ip-purple::before{ background:var(--purple); }
+.insight-pill .ip-label {
+  font-size:0.7rem; text-transform:uppercase;
+  letter-spacing:0.08em; color:var(--muted);
+  margin-bottom:0.4rem;
+}
+.insight-pill .ip-val {
+  font-family:'Syne',sans-serif;
+  font-size:1.7rem; font-weight:800;
+  letter-spacing:-0.03em; line-height:1;
+}
+.insight-pill.ip-blue  .ip-val { color:var(--accent); }
+.insight-pill.ip-green .ip-val { color:var(--green); }
+.insight-pill.ip-yellow .ip-val { color:var(--yellow); }
+.insight-pill.ip-red   .ip-val { color:var(--red); }
+.insight-pill.ip-purple .ip-val { color:var(--purple); }
+.insight-pill .ip-sub {
+  font-size:0.72rem; color:var(--muted); margin-top:3px;
+}
+
+/* ranking table */
+.rank-table { width:100%; border-collapse:collapse; font-size:0.8rem; }
+.rank-table thead th {
+  background:var(--s2); padding:0.5rem 0.8rem;
+  text-align:left; font-size:0.68rem;
+  text-transform:uppercase; letter-spacing:0.08em;
+  color:var(--muted); font-weight:500;
+  border-bottom:1px solid var(--border);
+}
+.rank-table tbody tr { border-bottom:1px solid var(--border); transition:background 0.12s; }
+.rank-table tbody tr:last-child { border-bottom:none; }
+.rank-table tbody tr:hover td { background:rgba(91,143,255,0.04); }
+.rank-table td { padding:0.45rem 0.8rem; }
+.rank-num { font-family:var(--mono); font-size:0.72rem; color:var(--muted); width:32px; }
+.rank-name { font-weight:500; }
+.rank-bar-cell { width:120px; }
+.rank-bar-bg {
+  height:6px; background:var(--s3); border-radius:3px; overflow:hidden;
+}
+.rank-bar-fill {
+  height:100%; border-radius:3px;
+  transition:width 0.4s;
+}
+.rank-val { font-family:var(--mono); font-size:0.78rem; font-weight:600; text-align:right; }
+
+@media(max-width:900px){
+  .an-grid { grid-template-columns:1fr; }
+  .an-grid.three { grid-template-columns:1fr 1fr; }
+}
+@media(max-width:600px){
+  #analysisScreen { padding:1rem 1rem 3rem; }
+  .an-grid.three { grid-template-columns:1fr; }
+}
+
 /* toast */
 .toast {
   position:fixed; bottom:2rem; left:50%; transform:translateX(-50%) translateY(20px);
@@ -426,6 +569,12 @@ input.cell-input.wide { width:90px; }
     <button class="btn btn-green" id="btnExport" style="display:none" onclick="exportXlsx()">⬇ Exportar .xlsx</button>
   </div>
 </header>
+
+<!-- TAB NAV -->
+<nav class="tab-nav" id="tabNav">
+  <button class="tab-btn active" id="tabEditor" onclick="switchTab('editor')">✏️ Editor</button>
+  <button class="tab-btn" id="tabAnalysis" onclick="switchTab('analysis')">📊 Análise</button>
+</nav>
 
 <!-- UPLOAD SCREEN -->
 <div id="uploadScreen">
@@ -474,6 +623,90 @@ input.cell-input.wide { width:90px; }
   </div>
 </div>
 
+<!-- ANALYSIS SCREEN -->
+<div id="analysisScreen">
+
+  <!-- insight pills -->
+  <div class="insight-row" id="insightRow"></div>
+
+  <!-- filter -->
+  <div class="an-toolbar">
+    <div class="ctrl-group">
+      <label>Disciplina (ranking)</label>
+      <select id="anDiscSel" onchange="renderAnalysis()"></select>
+    </div>
+    <div class="ctrl-group">
+      <label>Ordenar ranking por</label>
+      <select id="anSortSel" onchange="renderAnalysis()">
+        <option value="fin">Nota Final</option>
+        <option value="nc1">Ciclo 1</option>
+        <option value="nc2">Ciclo 2</option>
+        <option value="sim">Simulado</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- row 1: acertos comparativo + distribuicao -->
+  <div class="an-grid">
+    <div class="an-card">
+      <h3>Média de Acertos por Disciplina</h3>
+      <div class="sub">Bloco 1 · Bloco 2 · Simulado — média da turma</div>
+      <div class="an-chart-wrap"><canvas id="chartAcertosDisc"></canvas></div>
+    </div>
+    <div class="an-card">
+      <h3>Distribuição de Desempenho</h3>
+      <div class="sub">Nota Final — faixas da turma (disciplina selecionada)</div>
+      <div class="an-chart-wrap"><canvas id="chartDist"></canvas></div>
+    </div>
+  </div>
+
+  <!-- row 2: notas por aluno + evolucao ciclos -->
+  <div class="an-grid wide">
+    <div class="an-card">
+      <h3>Nota Final por Aluno</h3>
+      <div class="sub">Disciplina selecionada · cor por faixa de desempenho</div>
+      <div class="an-chart-wrap tall"><canvas id="chartAlunos"></canvas></div>
+    </div>
+  </div>
+
+  <!-- row 3: radar disciplinas + acertos bloco evol -->
+  <div class="an-grid">
+    <div class="an-card">
+      <h3>Radar — Médias por Disciplina</h3>
+      <div class="sub">Nota Final média · visão geral da turma</div>
+      <div class="an-chart-wrap"><canvas id="chartRadar"></canvas></div>
+    </div>
+    <div class="an-card">
+      <h3>Evolução: Acertos B1 → B2 → Sim</h3>
+      <div class="sub">Disciplina selecionada · média da turma por bloco</div>
+      <div class="an-chart-wrap"><canvas id="chartEvolucao"></canvas></div>
+    </div>
+  </div>
+
+  <!-- row 4: ranking -->
+  <div class="an-grid wide">
+    <div class="an-card">
+      <h3>Ranking de Alunos</h3>
+      <div class="sub" id="rankingSub">Ordenado por nota final</div>
+      <div style="overflow-x:auto; max-height:420px; overflow-y:auto;">
+        <table class="rank-table">
+          <thead>
+            <tr>
+              <th class="rank-num">#</th>
+              <th>Estudante</th>
+              <th>C1</th><th>C2</th><th>Sim</th>
+              <th>Final</th>
+              <th class="rank-bar-cell">Desempenho</th>
+            </tr>
+          </thead>
+          <tbody id="rankingBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
 </div><!-- .app -->
 
 <!-- confirm modal -->
@@ -520,9 +753,17 @@ function loadFile(file) {
     parseAll();
     document.getElementById('uploadScreen').style.display = 'none';
     document.getElementById('editorScreen').style.display = 'block';
+    document.getElementById('tabNav').classList.add('visible');
     document.getElementById('btnLoadNew').style.display = '';
     document.getElementById('btnExport').style.display = '';
     document.getElementById('headerSub').textContent = file.name;
+    // populate analysis disc selector
+    const anSel = document.getElementById('anDiscSel');
+    anSel.innerHTML = '';
+    Object.keys(allData).forEach(n => {
+      const o = document.createElement('option');
+      o.value = n; o.textContent = n; anSel.appendChild(o);
+    });
   };
   reader.readAsArrayBuffer(file);
 }
@@ -1048,8 +1289,13 @@ function buildAcertosSheet(wb) {
 // ── Reset ──────────────────────────────────────────────
 function resetToUpload() {
   workbook = null; allData = {}; configs = {}; currentDisc = ''; dirty = false;
+  destroyAllCharts();
   document.getElementById('uploadScreen').style.display = '';
   document.getElementById('editorScreen').style.display = 'none';
+  document.getElementById('analysisScreen').style.display = 'none';
+  document.getElementById('tabNav').classList.remove('visible');
+  document.getElementById('tabEditor').classList.add('active');
+  document.getElementById('tabAnalysis').classList.remove('active');
   document.getElementById('btnLoadNew').style.display = 'none';
   document.getElementById('btnExport').style.display = 'none';
   document.getElementById('headerSub').textContent = 'Carregue a planilha da turma para começar';
@@ -1074,6 +1320,271 @@ document.addEventListener('keydown', e => {
     if (dirty) saveCurrentDisc();
   }
 });
+
+// ── Tab switching ──────────────────────────────────────
+function switchTab(tab) {
+  document.getElementById('tabEditor').classList.toggle('active', tab==='editor');
+  document.getElementById('tabAnalysis').classList.toggle('active', tab==='analysis');
+  document.getElementById('editorScreen').style.display   = tab==='editor'   ? 'block' : 'none';
+  document.getElementById('analysisScreen').style.display = tab==='analysis' ? 'block' : 'none';
+  if (tab === 'analysis') renderAnalysis();
+}
+
+// ── Chart instances ────────────────────────────────────
+const chartInsts = {};
+function destroyChart(id) { if (chartInsts[id]) { chartInsts[id].destroy(); delete chartInsts[id]; } }
+function destroyAllCharts() { Object.keys(chartInsts).forEach(destroyChart); }
+
+const CH = {
+  tooltip: { backgroundColor:'#1a1f2e', borderColor:'#3d4870', borderWidth:1,
+             titleColor:'#dde3f5', bodyColor:'#6b7799',
+             titleFont:{family:'Syne'}, bodyFont:{family:'IBM Plex Mono'} },
+  grid: (alpha=0.06) => ({ color:`rgba(255,255,255,${alpha})` }),
+  ticks: { color:'#6b7799', font:{family:'DM Sans',size:10} },
+};
+
+function mkChart(id, cfg) {
+  destroyChart(id);
+  const ctx = document.getElementById(id).getContext('2d');
+  chartInsts[id] = new Chart(ctx, cfg);
+  return chartInsts[id];
+}
+
+// ── Helper: get all rows with computed notes ───────────
+function getComputedRows(discName) {
+  const cfg  = configs[discName];
+  const rows = allData[discName] || [];
+  return rows.map(r => ({
+    name: r.name,
+    ac1:  r.ac1  ?? 0,
+    ac2:  r.ac2  ?? 0,
+    acSim: r.acSim ?? 0,
+    nc1:  computeNc1(r, cfg),
+    nc2:  computeNc2(r, cfg),
+    sim:  computeNotaSim(r, cfg),
+    fin:  computeFinal(r, cfg),
+  }));
+}
+
+function avg(arr) {
+  const v = arr.filter(x => x > 0);
+  return v.length ? v.reduce((a,b)=>a+b,0)/v.length : 0;
+}
+
+// ── Render Analysis ────────────────────────────────────
+function renderAnalysis() {
+  if (!Object.keys(allData).length) return;
+  const disc   = document.getElementById('anDiscSel').value;
+  const sortBy = document.getElementById('anSortSel').value;
+  const rows   = getComputedRows(disc);
+  const names  = Object.keys(allData);
+
+  // ── Insight pills ──
+  const fins  = rows.map(r=>r.fin);
+  const avgFin = avg(fins);
+  const otimo  = fins.filter(v=>v>=2.5).length;
+  const bom    = fins.filter(v=>v>=2&&v<2.5).length;
+  const abaixo = fins.filter(v=>v>0&&v<1).length;
+  const maiorFin = Math.max(...fins);
+  const menorFin = Math.min(...fins.filter(v=>v>0));
+  document.getElementById('insightRow').innerHTML = `
+    <div class="insight-pill ip-blue"><div class="ip-label">Média Final (${disc})</div>
+      <div class="ip-val">${avgFin.toFixed(2)}</div><div class="ip-sub">${rows.length} alunos</div></div>
+    <div class="insight-pill ip-green"><div class="ip-label">Ótimo ≥ 2.5</div>
+      <div class="ip-val">${otimo}</div><div class="ip-sub">${((otimo/rows.length)*100).toFixed(0)}% da turma</div></div>
+    <div class="insight-pill ip-yellow"><div class="ip-label">Bom 2–2.49</div>
+      <div class="ip-val">${bom}</div></div>
+    <div class="insight-pill ip-red"><div class="ip-label">Abaixo de 1</div>
+      <div class="ip-val">${abaixo}</div></div>
+    <div class="insight-pill ip-purple"><div class="ip-label">Maior nota</div>
+      <div class="ip-val">${maiorFin.toFixed(2)}</div></div>
+    <div class="insight-pill ip-blue"><div class="ip-label">Menor nota</div>
+      <div class="ip-val">${(menorFin||0).toFixed(2)}</div></div>
+  `;
+
+  // ── Chart 1: Acertos por disciplina ──
+  const acB1Avg  = names.map(n => avg(getComputedRows(n).map(r=>r.ac1)));
+  const acB2Avg  = names.map(n => avg(getComputedRows(n).map(r=>r.ac2)));
+  const acSimAvg = names.map(n => avg(getComputedRows(n).map(r=>r.acSim)));
+
+  mkChart('chartAcertosDisc', {
+    type:'bar',
+    data:{
+      labels: names.map(n => n.length>10 ? n.substring(0,10)+'…' : n),
+      datasets:[
+        { label:'Bloco 1',  data:acB1Avg,  backgroundColor:'rgba(78,255,176,0.75)', borderRadius:4, borderSkipped:false },
+        { label:'Bloco 2',  data:acB2Avg,  backgroundColor:'rgba(91,143,255,0.75)', borderRadius:4, borderSkipped:false },
+        { label:'Simulado', data:acSimAvg, backgroundColor:'rgba(255,209,102,0.75)',borderRadius:4, borderSkipped:false },
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ labels:{ color:'#6b7799', font:{family:'DM Sans',size:11}, boxWidth:11 } }, tooltip:CH.tooltip },
+      scales:{
+        x:{ ticks:CH.ticks, grid:CH.grid() },
+        y:{ ticks:CH.ticks, grid:CH.grid(0.08), beginAtZero:true, title:{ display:true, text:'Média de acertos', color:'#6b7799', font:{family:'DM Sans',size:10} } }
+      },
+      barPercentage:0.75, categoryPercentage:0.8
+    }
+  });
+
+  // ── Chart 2: Distribuição ──
+  const buckets = {
+    'Ótimo ≥2.5': fins.filter(v=>v>=2.5).length,
+    'Bom 2–2.49': fins.filter(v=>v>=2&&v<2.5).length,
+    'Regular 1–1.99': fins.filter(v=>v>=1&&v<2).length,
+    'Baixo <1': fins.filter(v=>v>0&&v<1).length,
+    'Sem nota': fins.filter(v=>v===0).length,
+  };
+  mkChart('chartDist', {
+    type:'doughnut',
+    data:{
+      labels: Object.keys(buckets),
+      datasets:[{ data: Object.values(buckets),
+        backgroundColor:['#3effa0','#5b8fff','#ffd166','#ff5e5e','#3d4870'],
+        borderColor:'#12161f', borderWidth:3, hoverOffset:8 }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false, cutout:'62%',
+      plugins:{
+        legend:{ position:'bottom', labels:{ color:'#6b7799', font:{family:'DM Sans',size:11}, boxWidth:11, padding:10 } },
+        tooltip:CH.tooltip
+      }
+    }
+  });
+
+  // ── Chart 3: Nota final por aluno (horizontal bar) ──
+  const sorted3 = [...rows].sort((a,b)=>b.fin-a.fin);
+  const barColors = sorted3.map(r =>
+    r.fin>=2.5?'rgba(62,255,160,0.82)':r.fin>=2?'rgba(91,143,255,0.82)':r.fin>=1?'rgba(255,209,102,0.82)':'rgba(255,94,94,0.82)'
+  );
+  mkChart('chartAlunos', {
+    type:'bar',
+    data:{
+      labels: sorted3.map(r => {
+        const parts = r.name.trim().split(' ');
+        return parts[0] + (parts[1] ? ' '+parts[1] : '');
+      }),
+      datasets:[{
+        label:'Nota Final',
+        data: sorted3.map(r=>r.fin),
+        backgroundColor: barColors,
+        borderRadius:4, borderSkipped:false
+      }]
+    },
+    options:{
+      indexAxis:'y',
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false }, tooltip:{ ...CH.tooltip, callbacks:{
+        label: ctx => ` Nota: ${ctx.parsed.x.toFixed(2)}`
+      }}},
+      scales:{
+        x:{ ticks:CH.ticks, grid:CH.grid(0.08), beginAtZero:true,
+            max: Math.ceil(Math.max(...fins)+0.5) || 3 },
+        y:{ ticks:{ ...CH.ticks, font:{family:'DM Sans',size:9} }, grid:{ display:false } }
+      },
+      barPercentage:0.75
+    }
+  });
+
+  // ── Chart 4: Radar disciplinas ──
+  const radarAvg = names.map(n => avg(getComputedRows(n).map(r=>r.fin)));
+  mkChart('chartRadar', {
+    type:'radar',
+    data:{
+      labels: names.map(n => n.length>8 ? n.substring(0,8)+'…' : n),
+      datasets:[{
+        label:'Média Final',
+        data: radarAvg,
+        borderColor:'#5b8fff', backgroundColor:'rgba(91,143,255,0.12)',
+        pointBackgroundColor:'#5b8fff', pointRadius:4, pointHoverRadius:7,
+        borderWidth:2
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false }, tooltip:CH.tooltip },
+      scales:{ r:{
+        ticks:{ color:'#6b7799', backdropColor:'transparent', stepSize:0.5, font:{family:'IBM Plex Mono',size:9} },
+        grid:{ color:'rgba(255,255,255,0.07)' },
+        angleLines:{ color:'rgba(255,255,255,0.07)' },
+        pointLabels:{ color:'#6b7799', font:{family:'DM Sans',size:10} }
+      }}
+    }
+  });
+
+  // ── Chart 5: Evolução acertos B1→B2→Sim ──
+  const acB1vals  = rows.map(r=>r.ac1).filter(v=>v>0);
+  const acB2vals  = rows.map(r=>r.ac2).filter(v=>v>0);
+  const acSimvals = rows.map(r=>r.acSim).filter(v=>v>0);
+  const cfg = configs[disc];
+  const evolData = [
+    { label:'Média', color:'#c084fc',
+      data:[avg(acB1vals), avg(acB2vals), avg(acSimvals)] },
+    { label:'Máximo', color:'#3effa0',
+      data:[Math.max(...acB1vals,0), Math.max(...acB2vals,0), Math.max(...acSimvals,0)] },
+    { label:'Mínimo', color:'#ff5e5e',
+      data:[Math.min(...(acB1vals.length?acB1vals:[0])),
+            Math.min(...(acB2vals.length?acB2vals:[0])),
+            Math.min(...(acSimvals.length?acSimvals:[0]))] },
+  ];
+  mkChart('chartEvolucao', {
+    type:'line',
+    data:{
+      labels:['Bloco 1','Bloco 2','Simulado'],
+      datasets: evolData.map(d=>({
+        label: d.label,
+        data: d.data,
+        borderColor: d.color,
+        backgroundColor: d.color.replace(')',',0.08)').replace('rgb','rgba'),
+        pointBackgroundColor: d.color,
+        pointRadius:6, pointHoverRadius:9,
+        fill: d.label==='Média',
+        tension:0.3, borderWidth:2.5,
+        borderDash: d.label==='Mínimo'?[5,4]:[]
+      }))
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ labels:{ color:'#6b7799', font:{family:'DM Sans',size:11}, boxWidth:11 } }, tooltip:CH.tooltip },
+      scales:{
+        x:{ ticks:CH.ticks, grid:CH.grid() },
+        y:{ ticks:CH.ticks, grid:CH.grid(0.08), beginAtZero:true,
+            title:{ display:true, text:'Acertos', color:'#6b7799', font:{family:'DM Sans',size:10} } }
+      },
+      elements:{ point:{ borderWidth:2, borderColor:'#0b0e13' } }
+    }
+  });
+
+  // ── Ranking table ──
+  const sorted = [...rows].sort((a,b) => b[sortBy] - a[sortBy]);
+  const maxVal = Math.max(...sorted.map(r=>r.fin), 0.01);
+  const sortLabels = { fin:'Nota Final', nc1:'Ciclo 1', nc2:'Ciclo 2', sim:'Simulado' };
+  document.getElementById('rankingSub').textContent =
+    `Ordenado por ${sortLabels[sortBy]} · ${disc} · ${sorted.length} alunos`;
+
+  const tbody = document.getElementById('rankingBody');
+  tbody.innerHTML = '';
+  sorted.forEach((r,i) => {
+    const finPct = Math.round((r.fin/maxVal)*100);
+    const barColor = r.fin>=2.5?'#3effa0':r.fin>=2?'#5b8fff':r.fin>=1?'#ffd166':'#ff5e5e';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="rank-num">${i+1}</td>
+      <td class="rank-name">${r.name}</td>
+      <td style="font-family:var(--mono);font-size:0.78rem;color:var(--green)">${r.nc1.toFixed(2)}</td>
+      <td style="font-family:var(--mono);font-size:0.78rem;color:var(--accent)">${r.nc2.toFixed(2)}</td>
+      <td style="font-family:var(--mono);font-size:0.78rem;color:var(--yellow)">${r.sim.toFixed(2)}</td>
+      <td class="rank-val" style="color:${barColor}">${r.fin.toFixed(2)}</td>
+      <td class="rank-bar-cell">
+        <div class="rank-bar-bg">
+          <div class="rank-bar-fill" style="width:${finPct}%;background:${barColor}"></div>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
 </script>
 </body>
 </html>
