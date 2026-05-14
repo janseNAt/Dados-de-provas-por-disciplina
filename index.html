@@ -561,6 +561,77 @@
   }
   .btn-restore:hover { background: rgba(78,255,176,0.08); }
 
+  /* SAVED FILES PANEL */
+  .saved-panel {
+    margin: 0 3rem 2rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    display: none;
+  }
+  .saved-panel.visible { display: block; }
+  .saved-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.9rem 1.3rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .saved-panel-header h4 {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+  }
+  .saved-list { display: flex; flex-direction: column; }
+  .saved-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 1.3rem;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+  }
+  .saved-item:last-child { border-bottom: none; }
+  .saved-item:hover { background: rgba(78,255,176,0.04); }
+  .saved-item-icon { font-size: 1.2rem; flex-shrink: 0; }
+  .saved-item-info { flex: 1; min-width: 0; cursor: pointer; }
+  .saved-item-name {
+    font-weight: 600;
+    font-size: 0.88rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .saved-item-meta { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+  .saved-item-badge {
+    background: rgba(78,255,176,0.12);
+    color: var(--accent);
+    font-size: 0.72rem;
+    font-weight: 700;
+    font-family: 'Syne', sans-serif;
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .saved-item-del {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 0.2rem 0.4rem;
+    border-radius: 6px;
+    transition: color 0.15s, background 0.15s;
+    flex-shrink: 0;
+  }
+  .saved-item-del:hover { color: var(--final); background: rgba(255,107,107,0.12); }
+
   /* EMPTY STATE */
   #emptyMsg {
     text-align: center;
@@ -619,6 +690,15 @@
     </div>
     <div class="file-info" id="fileInfo"></div>
   </section>
+
+  <!-- SAVED FILES PANEL -->
+  <div class="saved-panel" id="savedPanel">
+    <div class="saved-panel-header">
+      <h4>📁 Planilhas salvas</h4>
+      <span id="savedCount"></span>
+    </div>
+    <div class="saved-list" id="savedList"></div>
+  </div>
 
   <div class="loading" id="loading">⏳ Processando planilha…</div>
 
@@ -760,8 +840,104 @@ let sortDir = {};
 let currentMode = 'individual';
 let currentFileName = '';
 
-// --- EXCLUSION PERSISTENCE ---
-function storageKey() { return 'excluded_' + currentFileName; }
+// =================== PERSISTENCE ===================
+const DB_PREFIX   = 'rciclo_data_';
+const EXCL_PREFIX = 'rciclo_excl_';
+
+// --- Save/load full sheet data ---
+function saveSheetData(fileName, data) {
+  try {
+    localStorage.setItem(DB_PREFIX + fileName, JSON.stringify({
+      fileName,
+      savedAt: Date.now(),
+      sheets: Object.keys(data),
+      data
+    }));
+  } catch(e) {
+    alert('Não foi possível salvar: localStorage cheio ou bloqueado.');
+  }
+}
+
+function loadSheetData(fileName) {
+  try {
+    const raw = localStorage.getItem(DB_PREFIX + fileName);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function deleteSavedFile(fileName) {
+  localStorage.removeItem(DB_PREFIX + fileName);
+  localStorage.removeItem(EXCL_PREFIX + fileName);
+  renderSavedPanel();
+}
+
+function listSavedFiles() {
+  const files = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith(DB_PREFIX)) {
+      try {
+        const d = JSON.parse(localStorage.getItem(key));
+        if (d) files.push(d);
+      } catch {}
+    }
+  }
+  return files.sort((a,b) => b.savedAt - a.savedAt);
+}
+
+function renderSavedPanel() {
+  const files = listSavedFiles();
+  const panel = document.getElementById('savedPanel');
+  const list  = document.getElementById('savedList');
+  const count = document.getElementById('savedCount');
+
+  if (!files.length) { panel.classList.remove('visible'); return; }
+  panel.classList.add('visible');
+  count.textContent = `${files.length} arquivo${files.length > 1 ? 's' : ''}`;
+  list.innerHTML = '';
+
+  files.forEach(f => {
+    const date = new Date(f.savedAt).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+    const item = document.createElement('div');
+    item.className = 'saved-item';
+    item.innerHTML = `
+      <span class="saved-item-icon">📊</span>
+      <div class="saved-item-info" onclick="loadFromStorage('${f.fileName.replace(/'/g,"\\'")}')">
+        <div class="saved-item-name">${f.fileName}</div>
+        <div class="saved-item-meta">${f.sheets.length} aba${f.sheets.length>1?'s':''} · Salvo em ${date}</div>
+      </div>
+      <span class="saved-item-badge" onclick="loadFromStorage('${f.fileName.replace(/'/g,"\\'")}')">Carregar</span>
+      <button class="saved-item-del" title="Apagar dados salvos" onclick="deleteSavedFile('${f.fileName.replace(/'/g,"\\'")}')">🗑</button>
+    `;
+    list.appendChild(item);
+  });
+}
+
+function loadFromStorage(fileName) {
+  const saved = loadSheetData(fileName);
+  if (!saved) return;
+  currentFileName = saved.fileName;
+  allSheetData    = saved.data;
+
+  const sheetSel = document.getElementById('sheetSel');
+  sheetSel.innerHTML = '';
+  Object.keys(allSheetData).forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = name; opt.textContent = name;
+    sheetSel.appendChild(opt);
+  });
+
+  document.getElementById('fileInfo').textContent = `📂 ${fileName} (dados salvos)`;
+  document.getElementById('modeTabs').classList.add('visible');
+  document.getElementById('controls').classList.add('visible');
+  currentMode = 'individual';
+  document.getElementById('tabIndividual').classList.add('active');
+  document.getElementById('tabCompare').classList.remove('active');
+  renderAll();
+}
+
+// --- Exclusion persistence (keyed by filename) ---
+function storageKey() { return EXCL_PREFIX + currentFileName; }
 
 function getExcluded() {
   try { return JSON.parse(localStorage.getItem(storageKey()) || '{}'); } catch { return {}; }
@@ -776,7 +952,6 @@ function deleteStudent(sheet, name) {
   if (!ex[sheet]) ex[sheet] = [];
   if (!ex[sheet].includes(name)) ex[sheet].push(name);
   saveExcluded(ex);
-  applyExclusions();
   renderAll();
 }
 
@@ -785,14 +960,7 @@ function restoreAll() {
   const sheet = document.getElementById('sheetSel').value;
   ex[sheet] = [];
   saveExcluded(ex);
-  applyExclusions();
   renderAll();
-}
-
-function applyExclusions() {
-  const ex = getExcluded();
-  // Re-parse from workbook keeping original data intact
-  // allSheetData already has original; we filter on render
 }
 
 function getActiveRows(sheet) {
@@ -813,6 +981,7 @@ function updateRestoreBar(sheet) {
     bar.classList.remove('visible');
   }
 }
+// ====================================================
 
 function switchMode(mode) {
   currentMode = mode;
@@ -988,6 +1157,10 @@ function parseWorkbook() {
     alert('Não foram encontradas abas com dados válidos.\nVerifique se a planilha tem colunas: Estudante, NOTA CICLO 1, NOTA CICLO 2, NOTA FINAL.');
     return;
   }
+
+  // Persist to localStorage
+  saveSheetData(currentFileName, allSheetData);
+  renderSavedPanel();
 
   document.getElementById('modeTabs').classList.add('visible');
   document.getElementById('controls').classList.add('visible');
@@ -1208,6 +1381,9 @@ function sortTable(col) {
   });
   renderTable(currentRows);
 }
+
+// Init: show saved files on page load
+renderSavedPanel();
 </script>
 </body>
 </html>
