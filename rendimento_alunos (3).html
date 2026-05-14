@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rendimento por Ciclo</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap');
+
+  :root {
+    --bg: #0d0f14;
+    --surface: #161a23;
+    --surface2: #1e2330;
+    --border: #2a3045;
+    --accent: #4fffb0;
+    --accent2: #ff6b6b;
+    --accent3: #ffd166;
+    --accent4: #6bcfff;
+    --text: #e8eaf0;
+    --muted: #7a8299;
+    --cycle1: #4fffb0;
+    --cycle2: #6bcfff;
+    --sim: #ffd166;
+    --final: #ff6b6b;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* GRID NOISE OVERLAY */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(78,255,176,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(78,255,176,0.02) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app { position: relative; z-index: 1; }
+
+  /* HEADER */
+  header {
+    padding: 2.5rem 3rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+  }
+
+  .logo-mark {
+    width: 44px; height: 44px;
+    background: var(--accent);
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+  }
+
+  .logo-mark svg { width: 24px; height: 24px; }
+
+  .header-text h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: var(--text);
+  }
+
+  .header-text p {
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin-top: 2px;
+    letter-spacing: 0.02em;
+  }
+
+  /* UPLOAD ZONE */
+  .upload-section {
+    padding: 3rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .drop-zone {
+    width: 100%;
+    max-width: 620px;
+    border: 2px dashed var(--border);
+    border-radius: 18px;
+    padding: 3.5rem 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    background: var(--surface);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .drop-zone::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(78,255,176,0.06), transparent 70%);
+    pointer-events: none;
+  }
+
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--accent);
+    background: var(--surface2);
+  }
+
+  .drop-zone .icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    display: block;
+    filter: drop-shadow(0 0 12px rgba(78,255,176,0.3));
+  }
+
+  .drop-zone h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+
+  .drop-zone p {
+    color: var(--muted);
+    font-size: 0.85rem;
+    line-height: 1.6;
+  }
+
+  .drop-zone .browse-btn {
+    display: inline-block;
+    margin-top: 1.4rem;
+    padding: 0.6rem 1.6rem;
+    background: var(--accent);
+    color: #0d0f14;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.88rem;
+    transition: opacity 0.2s;
+    cursor: pointer;
+  }
+
+  .drop-zone .browse-btn:hover { opacity: 0.85; }
+
+  #fileInput { display: none; }
+
+  .file-info {
+    margin-top: 1rem;
+    font-size: 0.82rem;
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  /* CONTROLS */
+  .controls {
+    display: none;
+    padding: 0 3rem 2rem;
+    gap: 1.2rem;
+    flex-wrap: wrap;
+    align-items: flex-end;
+  }
+
+  .controls.visible { display: flex; }
+
+  .ctrl-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .ctrl-group label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    font-weight: 500;
+  }
+
+  .ctrl-group select, .ctrl-group input {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.55rem 0.9rem;
+    border-radius: 8px;
+    font-size: 0.88rem;
+    font-family: 'DM Sans', sans-serif;
+    min-width: 180px;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+
+  .ctrl-group select:hover, .ctrl-group input:hover { border-color: var(--accent); }
+  .ctrl-group select:focus, .ctrl-group input:focus { outline: none; border-color: var(--accent); }
+
+  .btn-primary {
+    padding: 0.6rem 1.4rem;
+    background: var(--accent);
+    color: #0d0f14;
+    border: none;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.88rem;
+    font-family: 'Syne', sans-serif;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.15s;
+    align-self: flex-end;
+  }
+
+  .btn-primary:hover { opacity: 0.85; transform: translateY(-1px); }
+
+  /* STATS BAR */
+  .stats-bar {
+    display: none;
+    padding: 0 3rem 2rem;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .stats-bar.visible { display: flex; }
+
+  .stat-card {
+    flex: 1;
+    min-width: 140px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.1rem 1.3rem;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: 12px 12px 0 0;
+  }
+
+  .stat-card.c1::before { background: var(--cycle1); }
+  .stat-card.c2::before { background: var(--cycle2); }
+  .stat-card.sim::before { background: var(--sim); }
+  .stat-card.fin::before { background: var(--final); }
+
+  .stat-card .label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 0.4rem;
+  }
+
+  .stat-card .value {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.8rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+
+  .stat-card.c1 .value { color: var(--cycle1); }
+  .stat-card.c2 .value { color: var(--cycle2); }
+  .stat-card.sim .value { color: var(--sim); }
+  .stat-card.fin .value { color: var(--final); }
+
+  /* CHARTS */
+  .charts-section {
+    display: none;
+    padding: 0 3rem 3rem;
+    gap: 2rem;
+    flex-direction: column;
+  }
+
+  .charts-section.visible { display: flex; }
+
+  .chart-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+  }
+
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .chart-card.wide {
+    grid-column: 1 / -1;
+  }
+
+  .chart-card h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin-bottom: 0.3rem;
+    color: var(--text);
+  }
+
+  .chart-card .subtitle {
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-bottom: 1.3rem;
+  }
+
+  .chart-wrap {
+    position: relative;
+    height: 280px;
+  }
+
+  .chart-card.wide .chart-wrap {
+    height: 340px;
+  }
+
+  /* TABLE */
+  .table-section {
+    display: none;
+    padding: 0 3rem 3rem;
+  }
+
+  .table-section.visible { display: block; }
+
+  .table-section h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+  }
+
+  .table-wrapper {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+
+  .search-bar {
+    padding: 0.8rem 1.2rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .search-bar input {
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.88rem;
+    flex: 1;
+    outline: none;
+  }
+
+  .search-bar input::placeholder { color: var(--muted); }
+
+  .tbl-scroll { overflow-x: auto; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+  }
+
+  thead th {
+    background: var(--surface2);
+    padding: 0.7rem 1rem;
+    text-align: left;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  thead th:hover { color: var(--accent); }
+
+  tbody tr { border-bottom: 1px solid var(--border); }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover td { background: rgba(78,255,176,0.04); }
+
+  tbody td {
+    padding: 0.65rem 1rem;
+    white-space: nowrap;
+    transition: background 0.15s;
+  }
+
+  .td-name { font-weight: 500; white-space: normal; min-width: 200px; }
+
+  .badge {
+    display: inline-block;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .badge-high { background: rgba(78,255,176,0.15); color: var(--cycle1); }
+  .badge-mid  { background: rgba(107,207,255,0.15); color: var(--cycle2); }
+  .badge-low  { background: rgba(255,107,107,0.15); color: var(--final); }
+
+  /* MODE TABS */
+  .mode-tabs {
+    display: none;
+    padding: 0 3rem 0;
+    gap: 0.5rem;
+    margin-bottom: -1px;
+  }
+  .mode-tabs.visible { display: flex; }
+  .mode-tab {
+    padding: 0.55rem 1.3rem;
+    border-radius: 8px 8px 0 0;
+    border: 1px solid var(--border);
+    border-bottom: none;
+    background: var(--surface);
+    color: var(--muted);
+    font-family: 'Syne', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .mode-tab:hover { color: var(--text); }
+  .mode-tab.active {
+    background: var(--surface2);
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  /* COMPARE SECTION */
+  .compare-section {
+    display: none;
+    padding: 0 3rem 3rem;
+    flex-direction: column;
+    gap: 2rem;
+  }
+  .compare-section.visible { display: flex; }
+
+  .compare-chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    overflow: hidden;
+  }
+  .compare-chart-card h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin-bottom: 0.3rem;
+    color: var(--text);
+  }
+  .compare-chart-card .subtitle {
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-bottom: 1.3rem;
+  }
+  .compare-chart-wrap { position: relative; height: 320px; }
+
+  .compare-table-wrapper {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .compare-table-wrapper h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    padding: 1.2rem 1.5rem 0.8rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .compare-table-wrapper table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+  }
+  .compare-table-wrapper thead th {
+    background: var(--surface2);
+    padding: 0.7rem 1rem;
+    text-align: left;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .compare-table-wrapper tbody tr { border-bottom: 1px solid var(--border); }
+  .compare-table-wrapper tbody tr:last-child { border-bottom: none; }
+  .compare-table-wrapper tbody tr:hover td { background: rgba(78,255,176,0.04); }
+  .compare-table-wrapper tbody td { padding: 0.65rem 1rem; }
+  .td-disc { font-weight: 600; font-family: 'Syne', sans-serif; font-size: 0.85rem; }
+
+  .sparkbar {
+    display: inline-block;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--accent);
+    vertical-align: middle;
+    margin-left: 6px;
+    opacity: 0.7;
+  }
+
+  .btn-del {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 1rem;
+    padding: 0.2rem 0.4rem;
+    border-radius: 6px;
+    transition: color 0.15s, background 0.15s;
+    line-height: 1;
+  }
+  .btn-del:hover { color: var(--final); background: rgba(255,107,107,0.12); }
+
+  .restore-bar {
+    display: none;
+    padding: 0.6rem 1.2rem;
+    border-bottom: 1px solid var(--border);
+    align-items: center;
+    gap: 0.8rem;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+  .restore-bar.visible { display: flex; }
+  .restore-bar span { flex: 1; }
+  .btn-restore {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--accent);
+    padding: 0.3rem 0.8rem;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-restore:hover { background: rgba(78,255,176,0.08); }
+
+  /* EMPTY STATE */
+  #emptyMsg {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--muted);
+    font-size: 0.88rem;
+    display: none;
+  }
+
+  /* LOADING */
+  .loading {
+    display: none;
+    text-align: center;
+    padding: 2rem;
+    color: var(--accent);
+    font-size: 0.9rem;
+  }
+
+  .loading.visible { display: block; }
+
+  @media (max-width: 768px) {
+    header { padding: 1.5rem; }
+    .upload-section { padding: 1.5rem; }
+    .controls, .stats-bar, .charts-section, .table-section {
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+    }
+    .chart-row { grid-template-columns: 1fr; }
+    .chart-card.wide { grid-column: 1; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="logo-mark">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M3 17L9 11L13 15L21 7" stroke="#0d0f14" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M17 7H21V11" stroke="#0d0f14" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div class="header-text">
+      <h1>Rendimento por Ciclo</h1>
+      <p>Análise de desempenho escolar · Carregue uma planilha .xlsx para começar</p>
+    </div>
+  </header>
+
+  <section class="upload-section">
+    <div class="drop-zone" id="dropZone">
+      <span class="icon">📊</span>
+      <h2>Arraste sua planilha aqui</h2>
+      <p>Suporte para arquivos <strong>.xlsx</strong> com abas por disciplina.<br>Colunas esperadas: Estudante, NOTA CICLO 1, NOTA CICLO 2, Nota Simulado, NOTA FINAL.</p>
+      <label class="browse-btn" for="fileInput">Selecionar arquivo</label>
+      <input type="file" id="fileInput" accept=".xlsx,.xls">
+    </div>
+    <div class="file-info" id="fileInfo"></div>
+  </section>
+
+  <div class="loading" id="loading">⏳ Processando planilha…</div>
+
+  <!-- MODE TABS -->
+  <div class="mode-tabs" id="modeTabs">
+    <button class="mode-tab active" id="tabIndividual" onclick="switchMode('individual')">Por Disciplina</button>
+    <button class="mode-tab" id="tabCompare" onclick="switchMode('compare')">Comparativo</button>
+  </div>
+
+  <div class="controls" id="controls">
+    <div class="ctrl-group">
+      <label>Disciplina</label>
+      <select id="sheetSel"></select>
+    </div>
+    <div class="ctrl-group">
+      <label>Tipo de gráfico principal</label>
+      <select id="chartType">
+        <option value="bar">Barras por aluno</option>
+        <option value="line">Linha de tendência</option>
+        <option value="radar">Radar (visão geral)</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label>Buscar aluno</label>
+      <input type="text" id="studentSearch" placeholder="Nome do aluno…">
+    </div>
+    <button class="btn-primary" id="renderBtn">Atualizar gráficos</button>
+  </div>
+
+  <div class="stats-bar" id="statsBar">
+    <div class="stat-card c1">
+      <div class="label">Média Ciclo 1</div>
+      <div class="value" id="s1">—</div>
+    </div>
+    <div class="stat-card c2">
+      <div class="label">Média Ciclo 2</div>
+      <div class="value" id="s2">—</div>
+    </div>
+    <div class="stat-card sim">
+      <div class="label">Média Simulado</div>
+      <div class="value" id="s3">—</div>
+    </div>
+    <div class="stat-card fin">
+      <div class="label">Média Final</div>
+      <div class="value" id="s4">—</div>
+    </div>
+    <div class="stat-card" style="--clr:#a78bfa">
+      <div class="label">Alunos</div>
+      <div class="value" style="color:#a78bfa" id="s5">—</div>
+    </div>
+  </div>
+
+  <div class="charts-section" id="chartsSection">
+    <div class="chart-row">
+      <div class="chart-card wide">
+        <h3 id="mainChartTitle">Notas por Aluno</h3>
+        <div class="subtitle" id="mainChartSub">Comparativo Ciclo 1 · Ciclo 2 · Simulado · Final</div>
+        <div class="chart-wrap"><canvas id="mainChart"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-row">
+      <div class="chart-card">
+        <h3>Distribuição — Nota Final</h3>
+        <div class="subtitle">Faixas de desempenho</div>
+        <div class="chart-wrap"><canvas id="distChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Evolução Média da Turma</h3>
+        <div class="subtitle">Ciclo 1 → Ciclo 2 → Simulado → Final</div>
+        <div class="chart-wrap"><canvas id="evolChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="table-section" id="tableSection">
+    <h3>Tabela de Alunos</h3>
+    <div class="table-wrapper">
+      <div class="search-bar">
+        🔍 <input type="text" id="tableSearch" placeholder="Filtrar por nome…">
+      </div>
+      <div class="restore-bar" id="restoreBar">
+        <span id="restoreMsg"></span>
+        <button class="btn-restore" onclick="restoreAll()">↩ Restaurar todos</button>
+      </div>
+      <div class="tbl-scroll">
+        <table id="dataTable">
+          <thead>
+            <tr>
+              <th onclick="sortTable(0)">Estudante ↕</th>
+              <th onclick="sortTable(1)">Ciclo 1 ↕</th>
+              <th onclick="sortTable(2)">Ciclo 2 ↕</th>
+              <th onclick="sortTable(3)">Simulado ↕</th>
+              <th onclick="sortTable(4)">Nota Final ↕</th>
+              <th>Status</th>
+              <th id="thDel" style="width:40px"></th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <p id="emptyMsg">Nenhum dado encontrado com os filtros atuais.</p>
+
+  <!-- COMPARE SECTION -->
+  <div class="compare-section" id="compareSection">
+    <div class="compare-chart-card">
+      <h3>Médias por Disciplina</h3>
+      <div class="subtitle">Ciclo 1 · Ciclo 2 · Simulado · Final — todas as disciplinas</div>
+      <div class="compare-chart-wrap"><canvas id="compareChart"></canvas></div>
+    </div>
+    <div class="compare-table-wrapper">
+      <h3>Resumo por Disciplina</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Disciplina</th>
+            <th style="color:var(--cycle1)">Ciclo 1</th>
+            <th style="color:var(--cycle2)">Ciclo 2</th>
+            <th style="color:var(--sim)">Simulado</th>
+            <th style="color:var(--final)">Final</th>
+            <th>Alunos</th>
+            <th>Desempenho</th>
+          </tr>
+        </thead>
+        <tbody id="compareTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let workbook = null;
+let allSheetData = {};
+let mainChartInst = null, distChartInst = null, evolChartInst = null, compareChartInst = null;
+let currentRows = [];
+let sortDir = {};
+let currentMode = 'individual';
+let currentFileName = '';
+
+// --- EXCLUSION PERSISTENCE ---
+function storageKey() { return 'excluded_' + currentFileName; }
+
+function getExcluded() {
+  try { return JSON.parse(localStorage.getItem(storageKey()) || '{}'); } catch { return {}; }
+}
+
+function saveExcluded(obj) {
+  try { localStorage.setItem(storageKey(), JSON.stringify(obj)); } catch {}
+}
+
+function deleteStudent(sheet, name) {
+  const ex = getExcluded();
+  if (!ex[sheet]) ex[sheet] = [];
+  if (!ex[sheet].includes(name)) ex[sheet].push(name);
+  saveExcluded(ex);
+  applyExclusions();
+  renderAll();
+}
+
+function restoreAll() {
+  const ex = getExcluded();
+  const sheet = document.getElementById('sheetSel').value;
+  ex[sheet] = [];
+  saveExcluded(ex);
+  applyExclusions();
+  renderAll();
+}
+
+function applyExclusions() {
+  const ex = getExcluded();
+  // Re-parse from workbook keeping original data intact
+  // allSheetData already has original; we filter on render
+}
+
+function getActiveRows(sheet) {
+  const ex = getExcluded();
+  const excluded = ex[sheet] || [];
+  return (allSheetData[sheet] || []).filter(r => !excluded.includes(r.name));
+}
+
+function updateRestoreBar(sheet) {
+  const ex = getExcluded();
+  const count = (ex[sheet] || []).length;
+  const bar = document.getElementById('restoreBar');
+  const msg = document.getElementById('restoreMsg');
+  if (count > 0) {
+    bar.classList.add('visible');
+    msg.textContent = `${count} aluno${count > 1 ? 's' : ''} excluído${count > 1 ? 's' : ''} desta disciplina`;
+  } else {
+    bar.classList.remove('visible');
+  }
+}
+
+function switchMode(mode) {
+  currentMode = mode;
+  document.getElementById('tabIndividual').classList.toggle('active', mode === 'individual');
+  document.getElementById('tabCompare').classList.toggle('active', mode === 'compare');
+
+  const indControls = document.getElementById('controls');
+  const statsBar = document.getElementById('statsBar');
+  const charts = document.getElementById('chartsSection');
+  const table = document.getElementById('tableSection');
+  const compare = document.getElementById('compareSection');
+  const empty = document.getElementById('emptyMsg');
+
+  if (mode === 'individual') {
+    indControls.classList.add('visible');
+    compare.classList.remove('visible');
+    empty.style.display = 'none';
+    renderAll();
+  } else {
+    indControls.classList.remove('visible');
+    statsBar.classList.remove('visible');
+    charts.classList.remove('visible');
+    table.classList.remove('visible');
+    empty.style.display = 'none';
+    compare.classList.add('visible');
+    renderCompare();
+  }
+}
+
+function renderCompare() {
+  const names = Object.keys(allSheetData);
+  if (!names.length) return;
+
+  const c1avgs  = names.map(n => avg(getActiveRows(n).map(r=>r.c1)));
+  const c2avgs  = names.map(n => avg(getActiveRows(n).map(r=>r.c2)));
+  const simavgs = names.map(n => avg(getActiveRows(n).map(r=>r.sim)));
+  const finavgs = names.map(n => avg(getActiveRows(n).map(r=>r.fin)));
+
+  if (compareChartInst) compareChartInst.destroy();
+  const ctx = document.getElementById('compareChart').getContext('2d');
+  compareChartInst = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: names,
+      datasets: [
+        { label:'Ciclo 1',  data: c1avgs,  backgroundColor:'rgba(78,255,176,0.8)',  borderRadius:4, borderSkipped:false },
+        { label:'Ciclo 2',  data: c2avgs,  backgroundColor:'rgba(107,207,255,0.8)', borderRadius:4, borderSkipped:false },
+        { label:'Simulado', data: simavgs, backgroundColor:'rgba(255,209,102,0.8)', borderRadius:4, borderSkipped:false },
+        { label:'Final',    data: finavgs, backgroundColor:'rgba(255,107,107,0.8)', borderRadius:4, borderSkipped:false },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { labels:{ color:'#7a8299', font:{family:'DM Sans',size:11}, boxWidth:12 } },
+        tooltip: {
+          backgroundColor:'#1e2330', borderColor:'#2a3045', borderWidth:1,
+          titleColor:'#e8eaf0', bodyColor:'#7a8299',
+          titleFont:{family:'Syne'}, bodyFont:{family:'DM Sans'},
+          callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y.toFixed(2)}` }
+        }
+      },
+      scales: {
+        x: { ticks:{ color:'#7a8299', font:{family:'DM Sans',size:10}, maxRotation:30 }, grid:{ color:'rgba(255,255,255,0.04)' } },
+        y: { ticks:{ color:'#7a8299', font:{family:'DM Sans'} }, grid:{ color:'rgba(255,255,255,0.06)' }, beginAtZero:true }
+      },
+      barPercentage:0.75, categoryPercentage:0.85,
+    }
+  });
+
+  const tbody = document.getElementById('compareTableBody');
+  tbody.innerHTML = '';
+  const maxFin = Math.max(...finavgs) || 1;
+
+  names.forEach((name, i) => {
+    const rows = getActiveRows(name);
+    const fin = finavgs[i];
+    const pct = Math.round((fin / maxFin) * 100);
+    let badge, label;
+    if (fin >= 2.5)      { badge='badge-high'; label='Ótimo'; }
+    else if (fin >= 2.0) { badge='badge-mid';  label='Bom'; }
+    else if (fin >= 1.0) { badge=''; label='Regular'; }
+    else                  { badge='badge-low'; label='Baixo'; }
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="td-disc">${name}</td>
+      <td style="color:var(--cycle1)">${c1avgs[i].toFixed(2)}</td>
+      <td style="color:var(--cycle2)">${c2avgs[i].toFixed(2)}</td>
+      <td style="color:var(--sim)">${simavgs[i].toFixed(2)}</td>
+      <td style="color:var(--final);font-weight:600">${fin.toFixed(2)}</td>
+      <td style="color:var(--muted)">${rows.length}</td>
+      <td>
+        <span class="badge ${badge}">${label}</span>
+        <span class="sparkbar" style="width:${pct}px"></span>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// ---- DRAG & DROP ----
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => { if (e.target.files[0]) loadFile(e.target.files[0]); });
+
+function loadFile(file) {
+  currentFileName = file.name;
+  document.getElementById('fileInfo').textContent = `📂 ${file.name} (${(file.size/1024).toFixed(1)} KB)`;
+  document.getElementById('loading').classList.add('visible');
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      workbook = XLSX.read(e.target.result, { type: 'array' });
+      parseWorkbook();
+    } catch(err) {
+      alert('Erro ao ler arquivo: ' + err.message);
+    }
+    document.getElementById('loading').classList.remove('visible');
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function parseWorkbook() {
+  allSheetData = {};
+  const sheetSel = document.getElementById('sheetSel');
+  sheetSel.innerHTML = '';
+
+  workbook.SheetNames.forEach(name => {
+    const ws = workbook.Sheets[name];
+    const raw = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    if (!raw.length) return;
+
+    // detect columns
+    const cols = Object.keys(raw[0]);
+    const find = (keywords) => cols.find(c => keywords.some(k => c.toLowerCase().includes(k.toLowerCase())));
+
+    const cName = find(['estudante', 'aluno', 'nome', 'unnamed: 0']);
+    const c1    = find(['ciclo 1', 'ciclo1', 'nota ciclo 1', 'nota_ciclo_1']);
+    const c2    = find(['ciclo 2', 'ciclo2', 'nota ciclo 2', 'nota_ciclo_2']);
+    const cSim  = find(['simulado', 'nota simulado', 'nota_simulado', 'acertos simulado']);
+    const cFin  = find(['nota final', 'nota_final', 'final']);
+
+    if (!cName) return;
+
+    const rows = raw
+      .filter(r => r[cName] && String(r[cName]).trim() !== '')
+      .map(r => ({
+        name: String(r[cName]).trim(),
+        c1:   parseFloat(r[c1])   || 0,
+        c2:   parseFloat(r[c2])   || 0,
+        sim:  parseFloat(r[cSim]) || 0,
+        fin:  parseFloat(r[cFin]) || 0,
+      }));
+
+    if (!rows.length) return;
+
+    allSheetData[name] = rows;
+    const opt = document.createElement('option');
+    opt.value = name; opt.textContent = name;
+    sheetSel.appendChild(opt);
+  });
+
+  if (!Object.keys(allSheetData).length) {
+    alert('Não foram encontradas abas com dados válidos.\nVerifique se a planilha tem colunas: Estudante, NOTA CICLO 1, NOTA CICLO 2, NOTA FINAL.');
+    return;
+  }
+
+  document.getElementById('modeTabs').classList.add('visible');
+  document.getElementById('controls').classList.add('visible');
+  currentMode = 'individual';
+  document.getElementById('tabIndividual').classList.add('active');
+  document.getElementById('tabCompare').classList.remove('active');
+  renderAll();
+}
+
+document.getElementById('renderBtn').addEventListener('click', renderAll);
+document.getElementById('sheetSel').addEventListener('change', renderAll);
+document.getElementById('chartType').addEventListener('change', renderAll);
+document.getElementById('studentSearch').addEventListener('input', renderAll);
+
+function renderAll() {
+  const sheet = document.getElementById('sheetSel').value;
+  const type  = document.getElementById('chartType').value;
+  const query = document.getElementById('studentSearch').value.toLowerCase();
+
+  updateRestoreBar(sheet);
+
+  let rows = getActiveRows(sheet);
+  if (query) rows = rows.filter(r => r.name.toLowerCase().includes(query));
+  currentRows = rows;
+
+  if (!rows.length) {
+    document.getElementById('statsBar').classList.remove('visible');
+    document.getElementById('chartsSection').classList.remove('visible');
+    document.getElementById('tableSection').classList.remove('visible');
+    document.getElementById('emptyMsg').style.display = 'block';
+    return;
+  }
+
+  document.getElementById('emptyMsg').style.display = 'none';
+  document.getElementById('statsBar').classList.add('visible');
+  document.getElementById('chartsSection').classList.add('visible');
+  document.getElementById('tableSection').classList.add('visible');
+
+  updateStats(rows);
+  renderMainChart(rows, type, sheet);
+  renderDistChart(rows);
+  renderEvolChart(rows);
+  renderTable(rows);
+}
+
+function avg(arr) {
+  const v = arr.filter(x => x > 0);
+  return v.length ? (v.reduce((a,b)=>a+b,0)/v.length) : 0;
+}
+function fmt(n) { return n.toFixed(2); }
+
+function updateStats(rows) {
+  document.getElementById('s1').textContent = fmt(avg(rows.map(r=>r.c1)));
+  document.getElementById('s2').textContent = fmt(avg(rows.map(r=>r.c2)));
+  document.getElementById('s3').textContent = fmt(avg(rows.map(r=>r.sim)));
+  document.getElementById('s4').textContent = fmt(avg(rows.map(r=>r.fin)));
+  document.getElementById('s5').textContent = rows.length;
+}
+
+const CHART_DEFAULTS = {
+  color: Chart.defaults.color = '#7a8299',
+  plugins: { legend: { labels: { color: '#7a8299', font: { family: 'DM Sans' } } } }
+};
+
+function destroyChart(inst) { if (inst) { inst.destroy(); } }
+
+function renderMainChart(rows, type, sheet) {
+  destroyChart(mainChartInst);
+  const ctx = document.getElementById('mainChart').getContext('2d');
+
+  document.getElementById('mainChartTitle').textContent =
+    type === 'radar' ? `Radar de Rendimento — ${sheet}` : `Notas por Aluno — ${sheet}`;
+
+  const labels = rows.map(r => r.name.split(' ').slice(0,2).join(' '));
+  const ds = [
+    { label: 'Ciclo 1',  data: rows.map(r=>r.c1),  borderColor:'#4fffb0', backgroundColor: type==='bar'?'rgba(78,255,176,0.7)':'rgba(78,255,176,0.15)', pointBackgroundColor:'#4fffb0', fill: type==='line' },
+    { label: 'Ciclo 2',  data: rows.map(r=>r.c2),  borderColor:'#6bcfff', backgroundColor: type==='bar'?'rgba(107,207,255,0.7)':'rgba(107,207,255,0.15)', pointBackgroundColor:'#6bcfff', fill: type==='line' },
+    { label: 'Simulado', data: rows.map(r=>r.sim), borderColor:'#ffd166', backgroundColor: type==='bar'?'rgba(255,209,102,0.7)':'rgba(255,209,102,0.15)', pointBackgroundColor:'#ffd166', fill: type==='line' },
+    { label: 'Final',    data: rows.map(r=>r.fin), borderColor:'#ff6b6b', backgroundColor: type==='bar'?'rgba(255,107,107,0.7)':'rgba(255,107,107,0.15)', pointBackgroundColor:'#ff6b6b', fill: type==='line', borderDash: type==='line'?[6,3]:[] },
+  ];
+
+  const chartType = type === 'radar' ? 'radar' : (type === 'line' ? 'line' : 'bar');
+
+  mainChartInst = new Chart(ctx, {
+    type: chartType,
+    data: { labels, datasets: ds },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color:'#7a8299', font:{ family:'DM Sans', size:11 }, boxWidth:12 } },
+        tooltip: { backgroundColor:'#1e2330', borderColor:'#2a3045', borderWidth:1, titleColor:'#e8eaf0', bodyColor:'#7a8299', titleFont:{family:'Syne'}, bodyFont:{family:'DM Sans'} }
+      },
+      scales: chartType !== 'radar' ? {
+        x: { ticks:{ color:'#7a8299', font:{family:'DM Sans', size:10}, maxRotation:35 }, grid:{ color:'rgba(255,255,255,0.04)' } },
+        y: { ticks:{ color:'#7a8299', font:{family:'DM Sans'} }, grid:{ color:'rgba(255,255,255,0.06)' }, beginAtZero:true }
+      } : {
+        r: { ticks:{ color:'#7a8299', backdropColor:'transparent', stepSize:0.5 }, grid:{ color:'rgba(255,255,255,0.08)' }, angleLines:{ color:'rgba(255,255,255,0.08)' }, pointLabels:{ color:'#7a8299', font:{family:'DM Sans', size:10} } }
+      },
+      barPercentage: 0.7, categoryPercentage: 0.8,
+      elements: { line:{ tension:0.35, borderWidth:2 }, point:{ radius:3, hoverRadius:6 } }
+    }
+  });
+}
+
+function renderDistChart(rows) {
+  destroyChart(distChartInst);
+  const ctx = document.getElementById('distChart').getContext('2d');
+
+  const fins = rows.map(r=>r.fin);
+  const buckets = {
+    'Ótimo (≥2.5)': fins.filter(v=>v>=2.5).length,
+    'Bom (2–2.49)': fins.filter(v=>v>=2&&v<2.5).length,
+    'Regular (1–1.99)': fins.filter(v=>v>=1&&v<2).length,
+    'Baixo (<1)': fins.filter(v=>v<1).length,
+  };
+
+  distChartInst = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(buckets),
+      datasets: [{ data: Object.values(buckets), backgroundColor:['#4fffb0','#6bcfff','#ffd166','#ff6b6b'], borderColor:'#161a23', borderWidth:3, hoverOffset:6 }]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false, cutout:'65%',
+      plugins:{
+        legend:{ position:'bottom', labels:{ color:'#7a8299', font:{family:'DM Sans',size:11}, boxWidth:12, padding:12 } },
+        tooltip:{ backgroundColor:'#1e2330', borderColor:'#2a3045', borderWidth:1, titleColor:'#e8eaf0', bodyColor:'#7a8299' }
+      }
+    }
+  });
+}
+
+function renderEvolChart(rows) {
+  destroyChart(evolChartInst);
+  const ctx = document.getElementById('evolChart').getContext('2d');
+
+  const labels = ['Ciclo 1', 'Ciclo 2', 'Simulado', 'Final'];
+  const medias = [
+    avg(rows.map(r=>r.c1)),
+    avg(rows.map(r=>r.c2)),
+    avg(rows.map(r=>r.sim)),
+    avg(rows.map(r=>r.fin)),
+  ];
+
+  evolChartInst = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Média da Turma',
+        data: medias,
+        borderColor: '#a78bfa',
+        backgroundColor: 'rgba(167,139,250,0.12)',
+        pointBackgroundColor: '#a78bfa',
+        pointRadius: 6,
+        pointHoverRadius: 9,
+        fill: true,
+        tension: 0.35,
+        borderWidth: 2.5,
+      }]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{ display:false },
+        tooltip:{ backgroundColor:'#1e2330', borderColor:'#2a3045', borderWidth:1, titleColor:'#e8eaf0', bodyColor:'#7a8299', callbacks:{ label: ctx => ` Média: ${ctx.parsed.y.toFixed(2)}` } }
+      },
+      scales:{
+        x:{ ticks:{ color:'#7a8299', font:{family:'DM Sans'} }, grid:{ color:'rgba(255,255,255,0.04)' } },
+        y:{ ticks:{ color:'#7a8299', font:{family:'DM Sans'} }, grid:{ color:'rgba(255,255,255,0.06)' }, beginAtZero:true }
+      },
+      elements:{ point:{ borderWidth:2, borderColor:'#0d0f14' } }
+    }
+  });
+}
+
+function renderTable(rows) {
+  const sheet = document.getElementById('sheetSel').value;
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = '';
+  rows.forEach(r => {
+    const tr = document.createElement('tr');
+    let badge, label;
+    if (r.fin >= 2.5) { badge='badge-high'; label='Ótimo'; }
+    else if (r.fin >= 2) { badge='badge-mid'; label='Bom'; }
+    else if (r.fin >= 1) { label='Regular'; badge=''; }
+    else { badge='badge-low'; label='Baixo'; }
+
+    tr.innerHTML = `
+      <td class="td-name">${r.name}</td>
+      <td style="color:var(--cycle1)">${r.c1.toFixed(2)}</td>
+      <td style="color:var(--cycle2)">${r.c2.toFixed(2)}</td>
+      <td style="color:var(--sim)">${r.sim.toFixed(2)}</td>
+      <td style="color:var(--final);font-weight:600">${r.fin.toFixed(2)}</td>
+      <td><span class="badge ${badge}">${label}</span></td>
+      <td><button class="btn-del" title="Excluir aluno" onclick="deleteStudent('${sheet.replace(/'/g,"\\'")}','${r.name.replace(/'/g,"\\'")}')">🗑</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // table search
+  document.getElementById('tableSearch').oninput = e => {
+    const q = e.target.value.toLowerCase();
+    tbody.querySelectorAll('tr').forEach(tr => {
+      tr.style.display = tr.cells[0].textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+  };
+}
+
+function sortTable(col) {
+  sortDir[col] = !sortDir[col];
+  currentRows.sort((a,b) => {
+    const vals = [a.name, a.c1, a.c2, a.sim, a.fin];
+    const bvals = [b.name, b.c1, b.c2, b.sim, b.fin];
+    const av = vals[col], bv = bvals[col];
+    if (typeof av === 'string') return sortDir[col] ? av.localeCompare(bv) : bv.localeCompare(av);
+    return sortDir[col] ? av - bv : bv - av;
+  });
+  renderTable(currentRows);
+}
+</script>
+</body>
+</html>
