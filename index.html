@@ -660,12 +660,30 @@ input.cell-input.wide { width:90px; }
     </div>
   </div>
 
-  <!-- row 2: notas por aluno + evolucao ciclos -->
+  <!-- row 2: notas por aluno -->
   <div class="an-grid wide">
     <div class="an-card">
       <h3>Nota Final por Aluno</h3>
       <div class="sub">Disciplina selecionada · cor por faixa de desempenho</div>
       <div class="an-chart-wrap tall"><canvas id="chartAlunos"></canvas></div>
+    </div>
+  </div>
+
+  <!-- row 2b: acertos totais por estudante -->
+  <div class="an-grid wide">
+    <div class="an-card">
+      <h3>Acertos Totais por Estudante</h3>
+      <div class="sub">Disciplina selecionada · Bloco 1 + Bloco 2 + Simulado por aluno</div>
+      <div class="an-chart-wrap tall"><canvas id="chartAcertosAluno"></canvas></div>
+    </div>
+  </div>
+
+  <!-- row 2c: evolução por blocos de cada aluno -->
+  <div class="an-grid wide">
+    <div class="an-card">
+      <h3>Evolução de Acertos por Aluno — B1 → B2 → Simulado</h3>
+      <div class="sub">Disciplina selecionada · cada linha = um aluno · mostra progressão individual</div>
+      <div class="an-chart-wrap tall"><canvas id="chartEvolAluno"></canvas></div>
     </div>
   </div>
 
@@ -1484,6 +1502,125 @@ function renderAnalysis() {
         y:{ ticks:{ ...CH.ticks, font:{family:'DM Sans',size:9} }, grid:{ display:false } }
       },
       barPercentage:0.75
+    }
+  });
+
+  // ── Chart 3b: Acertos totais por estudante (empilhado B1+B2+Sim) ──
+  const sortedAc = [...rows].sort((a,b) => (b.ac1+b.ac2+b.acSim) - (a.ac1+a.ac2+a.acSim));
+  const alunoLabels = sortedAc.map(r => {
+    const p = r.name.trim().split(' ');
+    return p[0] + (p[1] ? ' '+p[1] : '');
+  });
+  mkChart('chartAcertosAluno', {
+    type:'bar',
+    data:{
+      labels: alunoLabels,
+      datasets:[
+        { label:'Bloco 1',  data: sortedAc.map(r=>r.ac1),
+          backgroundColor:'rgba(62,255,160,0.82)', borderRadius:0, borderSkipped:false },
+        { label:'Bloco 2',  data: sortedAc.map(r=>r.ac2),
+          backgroundColor:'rgba(91,143,255,0.82)', borderRadius:0, borderSkipped:false },
+        { label:'Simulado', data: sortedAc.map(r=>r.acSim),
+          backgroundColor:'rgba(255,209,102,0.82)', borderRadius:[4,4,0,0], borderSkipped:false },
+      ]
+    },
+    options:{
+      indexAxis:'y',
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{ labels:{ color:'#6b7799', font:{family:'DM Sans',size:11}, boxWidth:11 } },
+        tooltip:{ ...CH.tooltip, callbacks:{
+          label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.x} acertos`,
+          footer: items => {
+            const total = items.reduce((s,i)=>s+i.parsed.x,0);
+            return `Total: ${total} acertos`;
+          }
+        }}
+      },
+      scales:{
+        x:{ stacked:true, ticks:CH.ticks, grid:CH.grid(0.06), beginAtZero:true,
+            title:{ display:true, text:'Acertos', color:'#6b7799', font:{family:'DM Sans',size:10} } },
+        y:{ stacked:true, ticks:{ ...CH.ticks, font:{family:'DM Sans',size:9} }, grid:{ display:false } }
+      },
+      barPercentage:0.78
+    }
+  });
+
+  // ── Chart 3c: Evolução individual B1→B2→Sim por aluno ──
+  // Sort by name for consistency; generate a color per aluno
+  const evolRows = [...rows].filter(r => r.ac1>0 || r.ac2>0 || r.acSim>0);
+
+  // palette: cycle through distinct hues
+  function hslColor(idx, total, alpha=1) {
+    const h = Math.round((idx/total)*320); // 0–320 hue range avoids red wrap
+    return `hsla(${h},75%,62%,${alpha})`;
+  }
+
+  const evolDatasets = evolRows.map((r, i) => {
+    const shortName = r.name.trim().split(' ').slice(0,2).join(' ');
+    const color = hslColor(i, evolRows.length);
+    const colorFaded = hslColor(i, evolRows.length, 0.15);
+    return {
+      label: shortName,
+      data: [r.ac1 || null, r.ac2 || null, r.acSim || null],
+      borderColor: color,
+      backgroundColor: colorFaded,
+      pointBackgroundColor: color,
+      pointRadius: 5,
+      pointHoverRadius: 8,
+      fill: false,
+      tension: 0.3,
+      borderWidth: 1.8,
+      spanGaps: true,
+    };
+  });
+
+  // add turma average as thick line on top
+  evolDatasets.push({
+    label: '— Média turma',
+    data: [
+      avg(evolRows.map(r=>r.ac1).filter(v=>v>0)),
+      avg(evolRows.map(r=>r.ac2).filter(v=>v>0)),
+      avg(evolRows.map(r=>r.acSim).filter(v=>v>0)),
+    ],
+    borderColor: '#ffffff',
+    backgroundColor: 'transparent',
+    pointBackgroundColor: '#ffffff',
+    pointRadius: 7, pointHoverRadius: 10,
+    fill: false, tension: 0.3, borderWidth: 3,
+    borderDash: [],
+    spanGaps: true,
+    order: 0,
+  });
+
+  mkChart('chartEvolAluno', {
+    type:'line',
+    data:{ labels:['Bloco 1','Bloco 2','Simulado'], datasets: evolDatasets },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:'index', intersect:false },
+      plugins:{
+        legend:{
+          display: evolRows.length <= 15,  // hide if too many students
+          labels:{ color:'#6b7799', font:{family:'DM Sans',size:9}, boxWidth:10, padding:6 }
+        },
+        tooltip:{
+          ...CH.tooltip,
+          callbacks:{
+            title: items => `Bloco: ${items[0].label}`,
+            label: ctx => {
+              if (ctx.parsed.y === null) return null;
+              return ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}`;
+            }
+          }
+        }
+      },
+      scales:{
+        x:{ ticks:CH.ticks, grid:CH.grid() },
+        y:{ ticks:CH.ticks, grid:CH.grid(0.08), beginAtZero:true,
+            title:{ display:true, text:'Acertos', color:'#6b7799', font:{family:'DM Sans',size:10} } }
+      },
+      elements:{ point:{ borderWidth:1.5, borderColor:'#0b0e13' } }
     }
   });
 
